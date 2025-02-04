@@ -43,7 +43,7 @@ def handle_key_press(event=None):
 
 
 # Parameters
-piece_green = jellygame.Jelly(jellygame.color.GREEN)
+piece_green = jellygame.Jelly("#00AA00")
 piece_brown = jellygame.Jelly(jellygame.color.BROWN)
 
 prog = 0
@@ -69,6 +69,7 @@ create_frame()
 
 input_action = jellygame.InputAction(window, "a", handle_key_press)
 
+window.tiles[0][5].set_color("#00AA00")
 text1 = jellygame.Text(str(counter), 6, 0, 1, 1, 24, background_color=jellygame.color.GRAY)
 draw_text()
 
