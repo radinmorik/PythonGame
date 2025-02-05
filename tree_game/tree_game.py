@@ -35,7 +35,6 @@ score = 0
 font = pygame.font.Font(None, 36)
 button_rect = pygame.Rect(WIDTH // 2 - 50, HEIGHT - 80, 100, 50)
 tree_is_full = False  # Tracks whether the tree is fully grown
-tree_should_reset = False  # Tracks when the dead tree should be displayed
 
 running = True
 while running:
@@ -44,11 +43,11 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if tree_is_full:
-                    leaves.clear()  # Remove all leaves when the full tree appears
-                    tree_is_full = False
         if event.type == pygame.MOUSEBUTTONDOWN:
+            if tree_is_full:
+                leaves.clear()  # Remove all leaves when the full tree appears
+                tree_is_full = False
+
             def is_valid_position(x, y, min_distance=25):
                 for lx, ly, _ in leaves:
                     if abs(lx - x) < min_distance and abs(ly - y) < min_distance:
@@ -100,8 +99,8 @@ while running:
 
     # Draw tree
     if len(leaves) >= max_leaves:
-        leaves.clear()  # Remove all leaves when the full tree appears
         screen.blit(full_tree, (tree_x, tree_y))
+
     else:
         screen.blit(dead_tree, (tree_x, tree_y))
 
