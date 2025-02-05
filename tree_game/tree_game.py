@@ -42,6 +42,10 @@ while running:
         if event.type == pygame.QUIT:
             running = False
         if event.type == pygame.MOUSEBUTTONDOWN:
+            if tree_is_full:
+                leaves.clear()  # Remove all leaves when the full tree appears
+                tree_is_full = False
+
             def is_valid_position(x, y, min_distance=25):
                 for lx, ly, _ in leaves:
                     if abs(lx - x) < min_distance and abs(ly - y) < min_distance:
@@ -94,7 +98,7 @@ while running:
     # Draw tree
     if len(leaves) >= max_leaves:
         screen.blit(full_tree, (tree_x, tree_y))
-        leaves.clear()  # Remove all leaves when the full tree appears
+
     else:
         screen.blit(dead_tree, (tree_x, tree_y))
 
