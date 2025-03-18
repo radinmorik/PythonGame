@@ -1,7 +1,25 @@
 import pygame
 import random
+import firebase_admin
+from firebase_admin import credentials
+from firebase_admin import db
+import json
 
-# Initialize pygame
+############################################# Initialize Firebase #############################################
+cred = credentials.Certificate("/Users/radin/PycharmProjects/PythonGame/tree_game/treegame-b8ae6-firebase-adminsdk-fbsvc-8c07c43e75.json")
+default_app = firebase_admin.initialize_app(cred, {
+    'databaseURL': 'https://treegame-b8ae6-default-rtdb.europe-west1.firebasedatabase.app/'
+    })
+
+ref = db.reference("/")
+
+# Opens json file
+with open("points.json", "r") as f:
+    file_contents = json.load(f)
+ref.set(file_contents)
+
+
+############################################# Initialize pygame #############################################
 pygame.init()
 
 # Screen dimensions
