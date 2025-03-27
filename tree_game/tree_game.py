@@ -4,19 +4,40 @@ import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import db
 import json
+from time import sleep
+import sys
+from mfrc522 import SimpleMFRC522
+
 
 ############################################# Initialize Firebase #############################################
-cred = credentials.Certificate("/Users/radin/PycharmProjects/PythonGame/tree_game/treegame-b8ae6-firebase-adminsdk-fbsvc-8c07c43e75.json")
-default_app = firebase_admin.initialize_app(cred, {
-    'databaseURL': 'https://treegame-b8ae6-default-rtdb.europe-west1.firebasedatabase.app/'
-    })
+#cred = credentials.Certificate("/Users/radin/PycharmProjects/PythonGame/tree_game/treegame-b8ae6-firebase-adminsdk-fbsvc-8c07c43e75.json")
+#default_app = firebase_admin.initialize_app(cred, {
+#    'databaseURL': 'https://treegame-b8ae6-default-rtdb.europe-west1.firebasedatabase.app/'
+#    })
 
-ref = db.reference("/")
+#ref = db.reference("/")
 
 # Opens json file
-with open("points.json", "r") as f:
-    file_contents = json.load(f)
-ref.set(file_contents)
+#with open("points.json", "r") as f:
+ #   file_contents = json.load(f)
+#ref.set(file_contents)
+
+
+reader = SimpleMFRC522()
+
+try:
+    while True:
+        print("Hold a tag near the reader")
+        id  = reader.read()
+        #reader.write("\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'")
+        #print("ID: %\nText: %s" % (id,text))
+        print(id)
+        sleep(5)
+except KeyboardInterrupt:
+    GPIO.cleanup()
+    print("Error! (Noe gikk galt)")
+    raise
+
 
 
 ############################################# Initialize pygame #############################################
@@ -140,3 +161,4 @@ while running:
     pygame.time.delay(100)
 
 pygame.quit()
+
