@@ -10,33 +10,57 @@ from mfrc522 import SimpleMFRC522
 
 
 ############################################# Initialize Firebase #############################################
-#cred = credentials.Certificate("/Users/radin/PycharmProjects/PythonGame/tree_game/treegame-b8ae6-firebase-adminsdk-fbsvc-8c07c43e75.json")
-#default_app = firebase_admin.initialize_app(cred, {
-#    'databaseURL': 'https://treegame-b8ae6-default-rtdb.europe-west1.firebasedatabase.app/'
-#    })
+cred = credentials.Certificate("/home/shvan/Downloads/treegame-b8ae6-firebase-adminsdk-fbsvc-8c07c43e75.json")
+default_app = firebase_admin.initialize_app(cred, {
+   'databaseURL': 'https://treegame-b8ae6-default-rtdb.europe-west1.firebasedatabase.app/'
+    })
 
-#ref = db.reference("/")
+ref = db.reference("/")
 
 # Opens json file
 #with open("points.json", "r") as f:
- #   file_contents = json.load(f)
+#    file_contents = json.load(f)
 #ref.set(file_contents)
 
 
 reader = SimpleMFRC522()
 
-try:
+def authenticateuser():
+    """ Wait for the user to tap a card and return the user ID. """
+    
+    print("Hold a tag near the reader to start the game.")
+
     while True:
-        print("Hold a tag near the reader")
-        id  = reader.read()
-        #reader.write("\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'")
-        #print("ID: %\nText: %s" % (id,text))
-        print(id)
-        sleep(5)
-except KeyboardInterrupt:
-    GPIO.cleanup()
-    print("Error! (Noe gikk galt)")
-    raise
+        try:
+            id = reader.read()
+
+            user_id = str(id)  # Convert to string
+
+            print(f"Welcome, User {user_id}!")
+            return user_id  # Return authenticated user ID
+
+        except KeyboardInterrupt:
+            GPIO.cleanup()
+            print("Error! (Noe gikk galt)")	
+            sys.exit(1)
+
+############################################# Function: Update User Points #############################################
+def update_user_points(user_id):
+    """ Fetch current user points from Firebase, add 1 point, and update the database. """
+    user_ref = ref.child(user_id)
+
+    # Fetch user data (default to 0 if no data exists)
+    user_data = user_ref.get()
+    current_points = user_data.get("points", 0) if user_data else 0
+
+    # Increment points
+    new_points = current_points + 0.1
+    new_points = round(new_points, 1)
+    user_ref.set({"points": new_points})  # Update Firebase
+
+    print(f"User {user_id} now has {new_points} points!")
+
+
 
 
 
@@ -69,11 +93,13 @@ tree_x, tree_y = WIDTH // 2 - 150, HEIGHT // 2 - 200
 
 # Game variables
 leaves = []  # Stores (x, y, image) for each leaf
-max_leaves = 35
+max_leaves = 30
 score = 0
 font = pygame.font.Font(None, 36)
 button_rect = pygame.Rect(WIDTH // 2 - 50, HEIGHT - 80, 100, 50)
 tree_is_full = False  # Tracks whether the tree is fully grown
+
+user_id = authenticateuser()
 
 running = True
 while running:
@@ -103,9 +129,12 @@ while running:
                         leaf = random.choice(leaf_images)
                         leaves.append((new_x, new_y, leaf))
                         break
+                    
+                score += 0.1
+                update_user_points(user_id)
 
                 if len(leaves) >= max_leaves:
-                    score += 1
+                    # score += 1
                     tree_is_full = True  # Mark the tree as full
 
             if len(leaves) < max_leaves:
@@ -119,7 +148,7 @@ while running:
                         break
 
                 if len(leaves) >= max_leaves:
-                    score += 1
+                    # score += 1
                     tree_is_full = True  # Mark the tree as full
 
             if len(leaves) < max_leaves:
@@ -133,7 +162,7 @@ while running:
                         break
 
                 if len(leaves) >= max_leaves:
-                    score += 1
+                    # score += 1
                     tree_is_full = True  # Mark the tree as full
 
     # Draw tree
@@ -153,6 +182,7 @@ while running:
     screen.blit(button_text, (button_rect.x + 20, button_rect.y + 15))
 
     # 🎯 Draw mini tree icon + score text
+    score = round(score, 1)
     screen.blit(score_tree, (WIDTH - 100, 20))  # Position icon
     score_text = font.render(f"{score}", True, (255, 255, 255))
     screen.blit(score_text, (WIDTH - 50, 30))  # Position number next to icon
@@ -161,4 +191,3 @@ while running:
     pygame.time.delay(100)
 
 pygame.quit()
-
