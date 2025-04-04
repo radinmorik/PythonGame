@@ -3,7 +3,6 @@ import random
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import db
-import json
 import time
 import sys
 import RPi.GPIO as GPIO
@@ -19,38 +18,31 @@ default_app = firebase_admin.initialize_app(cred, {
 })
 
 ref = db.reference("/")
-
 reader = SimpleMFRC522()
 
-def authenticateuser():
-    """ Wait for the user to tap a card and return the user ID and existing points """
-    
-    print("Hold a tag near the reader to start the game.")
+############################################# Function: Read Card (Non-Blocking) #############################################
+def read_card():
+    """Try to read a card without blocking execution."""
+    try:
+        id, text = reader.read_no_block()  
+        if id:  
+            return str(id)  
+    except Exception as e:
+        print(f"RFID Error: {e}")
+    return None  
 
-    while True:
-        try:
-            id, text = reader.read()  # This returns both ID and text
-            user_id = str(id)  # Convert to string
-            
-            # Get user data from Firebase
-            user_ref = ref.child(user_id)
-            user_data = user_ref.get()
-            current_points = user_data.get("points", 0) if user_data else 0
-            
-            print(f"Welcome, User {user_id}! You have {current_points} points.")
-            return user_id, current_points  # Return authenticated user ID and their points
-
-        except KeyboardInterrupt:
-            GPIO.cleanup()
-            print("Error! (Noe gikk galt)")    
-            sys.exit(1)
+############################################# Function: Authenticate User #############################################
+def authenticateuser(user_id):
+    """ Fetch user points from Firebase """
+    user_ref = ref.child(user_id)
+    user_data = user_ref.get()
+    return user_data.get("points", 0) if user_data else 0  
 
 ############################################# Function: Update User Points #############################################
 def update_user_points(user_id, points):
-    """ Update user points in Firebase with the current score """
+    """ Update user points in Firebase """
     user_ref = ref.child(user_id)
-    points = round(points, 1)  # Round to one decimal place
-    user_ref.set({"points": points})  # Update Firebase
+    user_ref.set({"points": round(points, 1)})  
     print(f"User {user_id} now has {points} points!")
 
 ############################################# Function: Add Leaf #############################################
@@ -62,7 +54,7 @@ def add_leaf(leaves, tree_x, tree_y, leaf_images):
                 return False
         return True
     
-    for _ in range(75):  # Try multiple times to find a valid position
+    for _ in range(75):  
         x_offset = random.randint(17, 220)
         y_offset = random.randint(17, 200)
         new_x, new_y = tree_x + x_offset, tree_y + y_offset
@@ -75,30 +67,23 @@ def add_leaf(leaves, tree_x, tree_y, leaf_images):
 ############################################# Function: Handle Button Press #############################################
 def handle_button_press(leaves, tree_x, tree_y, leaf_images, max_leaves, user_id, score):
     """ Handle tree growth when button is pressed """
-    if len(leaves) >= max_leaves:  # Tree is full
+    if len(leaves) >= max_leaves:  
         leaves.clear()
-        update_user_points(user_id, score)
-        return score, False  # Reset tree_is_full flag
+        update_user_points(user_id, score)  
+        return round(score,1), False  
     
     if add_leaf(leaves, tree_x, tree_y, leaf_images):
         score += 0.1
-        score = round(score, 1)
         update_user_points(user_id, score)
     
-    # Try to add 2 more leaves for visual effect
     add_leaf(leaves, tree_x, tree_y, leaf_images)
     add_leaf(leaves, tree_x, tree_y, leaf_images)
     
-    tree_is_full = len(leaves) >= max_leaves
-    if tree_is_full:
-        update_user_points(user_id, score)
-    
-    return score, tree_is_full
+    return round(score,1), len(leaves) >= max_leaves  
 
 ############################################# Initialize pygame #############################################
 pygame.init()
 
-# Get actual screen dimensions
 info = pygame.display.Info()
 WIDTH, HEIGHT = info.current_w, info.current_h
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
@@ -120,82 +105,77 @@ full_tree = pygame.transform.scale(full_tree, (300, 400))
 score_tree = pygame.transform.scale(score_tree, (40, 40))
 leaf_images = [pygame.transform.scale(leaf, (70, 70)) for leaf in leaf_images]
 
-# Tree position (center it based on actual screen dimensions)
 tree_x, tree_y = WIDTH // 2 - 150, HEIGHT // 2 - 200
 
-# Auth user before starting and get their current points
-user_id, score = authenticateuser()
-
 # Game variables
-leaves = []  # Stores (x, y, image) for each leaf
+leaves = []  
 max_leaves = 30
 font = pygame.font.Font(None, 36)
-tree_is_full = False  # Tracks whether the tree is fully grown
-
-# Add key to exit game
-print("Press ESC to exit the game")
-print("Press the physical button on GPIO 15 to grow the tree")
-
-
-
-
-
+tree_is_full = False  
 
 # Button state tracking
-last_button_state = True  # Pull-up means default is True (not pressed)
+last_button_state = True  
 
-# Ensure GPIO setup is correct before the loop | Doesnt work if it s not here aswell
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(15, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
-
 running = True
+user_id = None  
+score = 0
+
 try:
     while running:
-        # :one: Check PHYSICAL BUTTON before anything else
-        input_state = GPIO.input(15)
-        if input_state == False and last_button_state == True:  # Button just pressed
-            #print(":rocket: Physical button pressed!")
-            score, tree_is_full = handle_button_press(leaves, tree_x, tree_y, leaf_images, max_leaves, user_id, score)
-        last_button_state = input_state  # Update last state
-
-        # :two: Handle Pygame Events (Keyboard & Mouse)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    running = False
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                mx, my = pygame.mouse.get_pos()
-                if button_x <= mx <= button_x + button_w and button_y <= my <= button_y + button_h:
-                    print(":mouse_three_button: Mouse button clicked!")
-                    score, tree_is_full = handle_button_press(leaves, tree_x, tree_y, leaf_images, max_leaves, user_id, score)
-
-        # :three: Draw everything
         screen.fill((0, 0, 0))
-        screen.blit(full_tree if tree_is_full else dead_tree, (tree_x, tree_y))
 
-        # Draw leaves
-        for x, y, leaf in leaves:
-            screen.blit(leaf, (x, y))
+        # ======================== HANDLE LOGIN / LOGOUT ========================
+        card_id = read_card()
+        if card_id:  
+            if user_id == card_id:  
+                print(f"User {user_id} logged out!")
+                user_id = None
+                leaves.clear()
+                score = 0
+            else:  
+                user_id = card_id
+                score = authenticateuser(user_id)
+                print(f"User {user_id} logged in! Current Score: {score}")
 
-        # Draw score
-        screen.blit(score_tree, (WIDTH - 100, 20))
-        score_text = font.render(f"{score}", True, (255, 255, 255))
-        screen.blit(score_text, (WIDTH - 50, 30))
+        # ======================== IDLE SCREEN ========================
+        if user_id is None:  
+            text = font.render("Tap card to Play!", True, (255, 255, 255))
+            screen.blit(text, (WIDTH // 2 - 100, HEIGHT // 2))
+            pygame.display.flip()
 
-    
+        else:  
+            input_state = GPIO.input(15)
+            if input_state == False and last_button_state == True:  
+                score, tree_is_full = handle_button_press(leaves, tree_x, tree_y, leaf_images, max_leaves, user_id, score)
+            last_button_state = input_state  
 
-        pygame.display.flip()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        running = False
 
-        # :four: Reduce sleep time to prevent missed inputs
-        time.sleep(0.05)
+            screen.blit(full_tree if tree_is_full else dead_tree, (tree_x, tree_y))
+
+            for x, y, leaf in leaves:
+                screen.blit(leaf, (x, y))
+
+            screen.blit(score_tree, (WIDTH - 100, 20))
+            score_text = font.render(f"{score}", True, (255, 255, 255))
+            screen.blit(score_text, (WIDTH - 50, 30))
+
+            pygame.display.flip()
+
+        time.sleep(0.2)  
 
 except KeyboardInterrupt:
     print("Game interrupted")
 finally:
     GPIO.cleanup()
     pygame.quit()
-    update_user_points(user_id, score)
-
+    if user_id:
+        update_user_points(user_id, score)
