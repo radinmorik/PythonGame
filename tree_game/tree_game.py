@@ -20,12 +20,15 @@ default_app = firebase_admin.initialize_app(cred, {
 ref = db.reference("/")
 reader = SimpleMFRC522()
 
+
+
 ############################################# Function: Read Card (Non-Blocking) #############################################
 def read_card():
     """Try to read a card without blocking execution."""
     try:
         id, text = reader.read_no_block()  
-        if id:  
+        if id:
+            id = hash(str(id))
             return str(id)  
     except Exception as e:
         print(f"RFID Error: {e}")
@@ -79,10 +82,15 @@ def handle_button_press(leaves, tree_x, tree_y, leaf_images, max_leaves, user_id
     add_leaf(leaves, tree_x, tree_y, leaf_images)
     add_leaf(leaves, tree_x, tree_y, leaf_images)
     
+    
+    
     return round(score,1), len(leaves) >= max_leaves  
 
 ############################################# Initialize pygame #############################################
 pygame.init()
+
+pygame.mixer.init()
+click_sound = pygame.mixer.Sound("Click.wav")
 
 info = pygame.display.Info()
 WIDTH, HEIGHT = info.current_w, info.current_h
@@ -102,7 +110,7 @@ leaf_images = [
 # Resize images
 dead_tree = pygame.transform.scale(dead_tree, (300, 400))
 full_tree = pygame.transform.scale(full_tree, (300, 400))
-score_tree = pygame.transform.scale(score_tree, (40, 40))
+score_tree = pygame.transform.scale(score_tree, (100, 100))
 leaf_images = [pygame.transform.scale(leaf, (70, 70)) for leaf in leaf_images]
 
 tree_x, tree_y = WIDTH // 2 - 150, HEIGHT // 2 - 200
@@ -110,7 +118,7 @@ tree_x, tree_y = WIDTH // 2 - 150, HEIGHT // 2 - 200
 # Game variables
 leaves = []  
 max_leaves = 30
-font = pygame.font.Font(None, 36)
+font = pygame.font.Font(None, 69)
 tree_is_full = False  
 
 # Button state tracking
@@ -123,13 +131,20 @@ running = True
 user_id = None  
 score = 0
 
+last_card_id = None
+last_card_time = 0
+CARD_COOLDOWN = 2
+
 try:
     while running:
         screen.fill((0, 0, 0))
 
         # ======================== HANDLE LOGIN / LOGOUT ========================
         card_id = read_card()
-        if card_id:  
+        current_time = time.time()
+        if card_id and (card_id != last_card_id or current_time - last_card_time > CARD_COOLDOWN):
+            last_card_time = current_time
+            last_card_id = card_id
             if user_id == card_id:  
                 print(f"User {user_id} logged out!")
                 user_id = None
@@ -142,13 +157,23 @@ try:
 
         # ======================== IDLE SCREEN ========================
         if user_id is None:  
-            text = font.render("Tap card to Play!", True, (255, 255, 255))
-            screen.blit(text, (WIDTH // 2 - 100, HEIGHT // 2))
+            text = font.render("Tap card to Recycle!", True, (255, 255, 255))
+            screen.blit(text, (WIDTH // 3 + 40, HEIGHT // 2))
             pygame.display.flip()
 
-        else:  
+        else:    
+            text = font.render("Recycle in the Bin, then press the Button!", True, (255, 255, 255))
+            screen.blit(text, (WIDTH // 5 + 30, HEIGHT // 5 * 4 - 40))
+            
+            text = font.render("1 item = 1 press", True, (255, 255, 255))
+            screen.blit(text, (WIDTH // 4 + 220, HEIGHT // 9 * 8 - 50))
+            
+            text = font.render("Tap card again to Quit", True, (255, 255, 255))
+            screen.blit(text, (WIDTH // 3, HEIGHT // 9 * 8 + 30))
+            
             input_state = GPIO.input(15)
-            if input_state == False and last_button_state == True:  
+            if input_state == False and last_button_state == True:
+                click_sound.play()
                 score, tree_is_full = handle_button_press(leaves, tree_x, tree_y, leaf_images, max_leaves, user_id, score)
             last_button_state = input_state  
 
@@ -164,9 +189,9 @@ try:
             for x, y, leaf in leaves:
                 screen.blit(leaf, (x, y))
 
-            screen.blit(score_tree, (WIDTH - 100, 20))
+            screen.blit(score_tree, (WIDTH - 250, 30))
             score_text = font.render(f"{score}", True, (255, 255, 255))
-            screen.blit(score_text, (WIDTH - 50, 30))
+            screen.blit(score_text, (WIDTH - 125, 60))
 
             pygame.display.flip()
 
