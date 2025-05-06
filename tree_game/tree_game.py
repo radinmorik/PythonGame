@@ -72,6 +72,7 @@ def handle_button_press(leaves, tree_x, tree_y, leaf_images, max_leaves, user_id
     """ Handle tree growth when button is pressed """
     if len(leaves) >= max_leaves:  
         leaves.clear()
+        score += 0.1
         update_user_points(user_id, score)  
         return round(score,1), False  
     
@@ -117,8 +118,11 @@ tree_x, tree_y = WIDTH // 2 - 150, HEIGHT // 2 - 200
 
 # Game variables
 leaves = []  
-max_leaves = 30
+max_leaves = 27
 font = pygame.font.Font(None, 69)
+fontHeader = pygame.font.Font(None, 140)
+
+
 tree_is_full = False  
 
 # Button state tracking
@@ -156,12 +160,17 @@ try:
                 print(f"User {user_id} logged in! Current Score: {score}")
 
         # ======================== IDLE SCREEN ========================
-        if user_id is None:  
+        if user_id is None:              
+            text = fontHeader.render("Welcome to Treecycle!", True, (0, 200, 0))
+            screen.blit(text, (WIDTH // 2 - 550 + 40, 200))
             text = font.render("Tap card to Recycle!", True, (255, 255, 255))
             screen.blit(text, (WIDTH // 3 + 40, HEIGHT // 2))
             pygame.display.flip()
 
         else:    
+            text = fontHeader.render("Treecycle", True, (0, 200, 0))
+            screen.blit(text, (WIDTH // 2 - 260 + 40, 100))
+            
             text = font.render("Recycle in the Bin, then press the Button!", True, (255, 255, 255))
             screen.blit(text, (WIDTH // 5 + 30, HEIGHT // 5 * 4 - 40))
             
